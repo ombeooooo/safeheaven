@@ -1,42 +1,111 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import BlockToggle from "@/components/BlockToggle";
 import BlockedSitesList from "@/components/BlockedSitesList";
 import KeywordBlocker from "@/components/KeywordBlocker";
 import GrowingTree from "@/components/GrowingTree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  getBlockedSites,
+  addBlockedSite,
+  removeBlockedSite,
+  getBlockedKeywords,
+  addBlockedKeyword,
+  removeBlockedKeyword,
+  getStreak,
+  updateProtectionStatus,
+  checkInStreak,
+} from "@/lib/shieldService";
 
 const Index = () => {
-  const [enabled, setEnabled] = useState(true);
-  const [days] = useState(12);
-  const [blockedSites, setBlockedSites] = useState<string[]>([
-    "example-adult-site.com",
-    "blocked-content.net",
-  ]);
-  const [blockedKeywords, setBlockedKeywords] = useState<string[]>([
-    "adult",
-    "xxx",
-    "nsfw",
-  ]);
+  const queryClient = useQueryClient();
+
+  const { data: streakData } = useQuery({
+    queryKey: ['streak'],
+    queryFn: getStreak,
+  });
+
+  const { data: blockedSites = [] } = useQuery({
+    queryKey: ['blockedSites'],
+    queryFn: getBlockedSites,
+  });
+
+  const { data: blockedKeywords = [] } = useQuery({
+    queryKey: ['blockedKeywords'],
+    queryFn: getBlockedKeywords,
+  });
+
+  const addSiteMutation = useMutation({
+    mutationFn: addBlockedSite,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blockedSites'] });
+    },
+  });
+
+  const removeSiteMutation = useMutation({
+    mutationFn: removeBlockedSite,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blockedSites'] });
+    },
+  });
+
+  const addKeywordMutation = useMutation({
+    mutationFn: addBlockedKeyword,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blockedKeywords'] });
+    },
+  });
+
+  const removeKeywordMutation = useMutation({
+    mutationFn: removeBlockedKeyword,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blockedKeywords'] });
+    },
+  });
+
+  const updateProtectionMutation = useMutation({
+    mutationFn: updateProtectionStatus,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['streak'] });
+    },
+  });
+
+  useEffect(() => {
+    const performCheckIn = async () => {
+      if (streakData?.protectionEnabled) {
+        const newStreak = await checkInStreak();
+        if (newStreak !== streakData.currentStreak) {
+          queryClient.invalidateQueries({ queryKey: ['streak'] });
+        }
+      }
+    };
+
+    performCheckIn();
+  }, [streakData?.protectionEnabled, streakData?.currentStreak, queryClient]);
 
   const handleAddSite = (site: string) => {
     if (!blockedSites.includes(site)) {
-      setBlockedSites([...blockedSites, site]);
+      addSiteMutation.mutate(site);
     }
   };
 
   const handleRemoveSite = (site: string) => {
-    setBlockedSites(blockedSites.filter((s) => s !== site));
+    removeSiteMutation.mutate(site);
   };
 
   const handleAddKeyword = (keyword: string) => {
     if (!blockedKeywords.includes(keyword)) {
-      setBlockedKeywords([...blockedKeywords, keyword]);
+      addKeywordMutation.mutate(keyword);
     }
   };
 
   const handleRemoveKeyword = (keyword: string) => {
-    setBlockedKeywords(blockedKeywords.filter((k) => k !== keyword));
+    removeKeywordMutation.mutate(keyword);
+  };
+
+  const handleToggleProtection = (enabled: boolean) => {
+    updateProtectionMutation.mutate(enabled);
   };
 
   return (
@@ -77,7 +146,10 @@ const Index = () => {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <BlockToggle enabled={enabled} onToggle={setEnabled} />
+              <BlockToggle
+                enabled={streakData?.protectionEnabled ?? true}
+                onToggle={handleToggleProtection}
+              />
             </motion.div>
 
             {/* Divider */}
@@ -86,7 +158,7 @@ const Index = () => {
 
             {/* Growing Tree */}
             <div className="flex-shrink-0">
-              <GrowingTree days={days} maxDays={30} />
+              <GrowingTree days={streakData?.currentStreak ?? 0} maxDays={30} />
             </div>
           </div>
         </motion.section>
