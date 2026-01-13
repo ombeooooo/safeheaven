@@ -1,0 +1,10 @@
+{
+  "name": "shield-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "cd safe-haven-main && npm run dev",
+    "build": "cd safe-haven-main && npm run build",
+    "preview": "cd safe-haven-main && npm run preview"
+  }
+}
