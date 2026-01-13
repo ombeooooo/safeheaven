@@ -32,7 +32,7 @@ const Statistics = ({ totalBlocksPrevented, longestStreak, currentStreak }: Stat
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-4 w-full max-w-2xl">
+    <div className="grid grid-cols-3 gap-4 w-full max-w-2xl mx-auto">
       {stats.map((stat, index) => (
         <motion.div
           key={stat.label}
