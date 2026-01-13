@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Blocked - Shield</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 24px;
+      padding: 48px 40px;
+      max-width: 540px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .shield-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #1a202c;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+
+    .blocked-site {
+      font-size: 16px;
+      color: #718096;
+      margin-bottom: 24px;
+      padding: 12px 20px;
+      background: #f7fafc;
+      border-radius: 12px;
+      font-family: monospace;
+      word-break: break-all;
+    }
+
+    .message {
+      font-size: 16px;
+      color: #4a5568;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 32px;
+      padding: 20px;
+      background: #f7fafc;
+      border-radius: 16px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #667eea;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: #718096;
+      margin-top: 4px;
+    }
+
+    .button {
+      display: inline-block;
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 14px;
+      color: #a0aec0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="shield-icon">🛡️</div>
+    <h1>Site Blocked</h1>
+    <div class="blocked-site" id="blockedInfo">This site is blocked</div>
+    <p class="message">
+      You've blocked this site to help you stay focused and maintain your productivity streak. Keep going strong!
+    </p>
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-value" id="currentStreak">0</span>
+        <span class="stat-label">Day Streak</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="totalBlocks">0</span>
+        <span class="stat-label">Blocks</span>
+      </div>
+    </div>
+    <button class="button" onclick="openDashboard()">Open Dashboard</button>
+    <div class="footer">
+      Stay focused, stay protected with Shield
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const site = urlParams.get('site');
+    const keyword = urlParams.get('keyword');
+
+    if (site) {
+      document.getElementById('blockedInfo').textContent = site;
+    } else if (keyword) {
+      document.getElementById('blockedInfo').textContent = `Keyword: ${keyword}`;
+    }
+
+    chrome.storage.local.get(['userId', 'currentStreak', 'totalBlocks'], (result) => {
+      if (result.currentStreak !== undefined) {
+        document.getElementById('currentStreak').textContent = result.currentStreak;
+      }
+      if (result.totalBlocks !== undefined) {
+        document.getElementById('totalBlocks').textContent = result.totalBlocks;
+      }
+    });
+
+    async function recordBlock() {
+      const result = await chrome.storage.local.get(['userId', 'supabaseUrl', 'supabaseAnonKey', 'totalBlocks']);
+
+      if (result.userId && result.supabaseUrl && result.supabaseAnonKey) {
+        try {
+          const eventType = site ? 'site_blocked' : 'keyword_blocked';
+          const details = site || keyword;
+
+          await fetch(`${result.supabaseUrl}/rest/v1/protection_events`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': result.supabaseAnonKey,
+              'Authorization': `Bearer ${result.supabaseAnonKey}`
+            },
+            body: JSON.stringify({
+              user_id: result.userId,
+              event_type: eventType,
+              details: details
+            })
+          });
+
+          const newTotal = (result.totalBlocks || 0) + 1;
+          await chrome.storage.local.set({ totalBlocks: newTotal });
+          document.getElementById('totalBlocks').textContent = newTotal;
+
+          await fetch(`${result.supabaseUrl}/rest/v1/rpc/increment_blocks_prevented`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': result.supabaseAnonKey,
+              'Authorization': `Bearer ${result.supabaseAnonKey}`
+            },
+            body: JSON.stringify({ p_user_id: result.userId })
+          });
+        } catch (error) {
+          console.error('Error recording block:', error);
+        }
+      }
+    }
+
+    function openDashboard() {
+      chrome.runtime.openOptionsPage();
+    }
+
+    recordBlock();
+  </script>
+</body>
+</html>

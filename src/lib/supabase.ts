@@ -8,3 +8,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const isExtension = typeof chrome !== 'undefined' && chrome.storage;
+
+if (isExtension) {
+  chrome.storage.local.set({
+    supabaseUrl,
+    supabaseAnonKey
+  }).catch(error => {
+    console.error('Error syncing Supabase credentials to extension storage:', error);
+  });
+}

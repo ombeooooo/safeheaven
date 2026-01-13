@@ -2,12 +2,27 @@ import { supabase } from './supabase';
 
 const USER_ID_KEY = 'shield_user_id';
 
+const isExtension = typeof chrome !== 'undefined' && chrome.storage;
+
+async function syncToExtensionStorage(key: string, value: any) {
+  if (isExtension) {
+    try {
+      await chrome.storage.local.set({ [key]: value });
+    } catch (error) {
+      console.error('Error syncing to extension storage:', error);
+    }
+  }
+}
+
 export const getUserId = (): string => {
   let userId = localStorage.getItem(USER_ID_KEY);
 
   if (!userId) {
     userId = crypto.randomUUID();
     localStorage.setItem(USER_ID_KEY, userId);
+    syncToExtensionStorage('userId', userId);
+  } else {
+    syncToExtensionStorage('userId', userId);
   }
 
   return userId;
@@ -27,7 +42,9 @@ export const getBlockedSites = async (): Promise<string[]> => {
     return [];
   }
 
-  return data.map(item => item.domain);
+  const sites = data.map(item => item.domain);
+  await syncToExtensionStorage('blockedSites', sites);
+  return sites;
 };
 
 export const addBlockedSite = async (domain: string): Promise<boolean> => {
@@ -41,6 +58,9 @@ export const addBlockedSite = async (domain: string): Promise<boolean> => {
     console.error('Error adding blocked site:', error);
     return false;
   }
+
+  const sites = await getBlockedSites();
+  await syncToExtensionStorage('blockedSites', sites);
 
   return true;
 };
@@ -59,6 +79,9 @@ export const removeBlockedSite = async (domain: string): Promise<boolean> => {
     return false;
   }
 
+  const sites = await getBlockedSites();
+  await syncToExtensionStorage('blockedSites', sites);
+
   return true;
 };
 
@@ -76,7 +99,9 @@ export const getBlockedKeywords = async (): Promise<string[]> => {
     return [];
   }
 
-  return data.map(item => item.keyword);
+  const keywords = data.map(item => item.keyword);
+  await syncToExtensionStorage('blockedKeywords', keywords);
+  return keywords;
 };
 
 export const addBlockedKeyword = async (keyword: string): Promise<boolean> => {
@@ -90,6 +115,9 @@ export const addBlockedKeyword = async (keyword: string): Promise<boolean> => {
     console.error('Error adding blocked keyword:', error);
     return false;
   }
+
+  const keywords = await getBlockedKeywords();
+  await syncToExtensionStorage('blockedKeywords', keywords);
 
   return true;
 };
@@ -107,6 +135,9 @@ export const removeBlockedKeyword = async (keyword: string): Promise<boolean> =>
     console.error('Error removing blocked keyword:', error);
     return false;
   }
+
+  const keywords = await getBlockedKeywords();
+  await syncToExtensionStorage('blockedKeywords', keywords);
 
   return true;
 };
@@ -168,13 +199,19 @@ export const getStreak = async (): Promise<StreakData> => {
     };
   }
 
-  return {
+  const streakData = {
     currentStreak: data.current_streak,
     lastCheckIn: data.last_check_in,
     protectionEnabled: data.protection_enabled,
     isPaused: data.is_paused || false,
     pauseStartedAt: data.pause_started_at || null,
   };
+
+  await syncToExtensionStorage('protectionEnabled', streakData.protectionEnabled);
+  await syncToExtensionStorage('isPaused', streakData.isPaused);
+  await syncToExtensionStorage('currentStreak', streakData.currentStreak);
+
+  return streakData;
 };
 
 export const updateProtectionStatus = async (enabled: boolean): Promise<boolean> => {
@@ -189,6 +226,8 @@ export const updateProtectionStatus = async (enabled: boolean): Promise<boolean>
     console.error('Error updating protection status:', error);
     return false;
   }
+
+  await syncToExtensionStorage('protectionEnabled', enabled);
 
   return true;
 };
@@ -367,6 +406,7 @@ export const togglePause = async (pause: boolean): Promise<boolean> => {
     return false;
   }
 
+  await syncToExtensionStorage('isPaused', pause);
   await recordProtectionEvent(pause ? 'protection_paused' : 'protection_resumed');
 
   return true;
