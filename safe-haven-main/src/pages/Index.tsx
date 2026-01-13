@@ -5,6 +5,7 @@ import BlockToggle from "@/components/BlockToggle";
 import BlockedSitesList from "@/components/BlockedSitesList";
 import KeywordBlocker from "@/components/KeywordBlocker";
 import GrowingTree from "@/components/GrowingTree";
+import Statistics from "@/components/Statistics";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getBlockedSites,
@@ -16,6 +17,9 @@ import {
   getStreak,
   updateProtectionStatus,
   checkInStreak,
+  getStatistics,
+  togglePause,
+  updateLongestStreak,
 } from "@/lib/shieldService";
 
 const Index = () => {
@@ -24,6 +28,11 @@ const Index = () => {
   const { data: streakData } = useQuery({
     queryKey: ['streak'],
     queryFn: getStreak,
+  });
+
+  const { data: statistics } = useQuery({
+    queryKey: ['statistics'],
+    queryFn: getStatistics,
   });
 
   const { data: blockedSites = [] } = useQuery({
@@ -71,18 +80,27 @@ const Index = () => {
     },
   });
 
+  const pauseMutation = useMutation({
+    mutationFn: togglePause,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['streak'] });
+    },
+  });
+
   useEffect(() => {
     const performCheckIn = async () => {
-      if (streakData?.protectionEnabled) {
+      if (streakData?.protectionEnabled && !streakData?.isPaused) {
         const newStreak = await checkInStreak();
         if (newStreak !== streakData.currentStreak) {
+          await updateLongestStreak(newStreak);
           queryClient.invalidateQueries({ queryKey: ['streak'] });
+          queryClient.invalidateQueries({ queryKey: ['statistics'] });
         }
       }
     };
 
     performCheckIn();
-  }, [streakData?.protectionEnabled, streakData?.currentStreak, queryClient]);
+  }, [streakData?.protectionEnabled, streakData?.isPaused, streakData?.currentStreak, queryClient]);
 
   const handleAddSite = (site: string) => {
     if (!blockedSites.includes(site)) {
@@ -108,6 +126,10 @@ const Index = () => {
     updateProtectionMutation.mutate(enabled);
   };
 
+  const handlePause = (paused: boolean) => {
+    pauseMutation.mutate(paused);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -127,6 +149,20 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col items-center px-6 pb-12">
+        {/* Statistics Section */}
+        <motion.section
+          className="w-full max-w-4xl mb-10"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.05 }}
+        >
+          <Statistics
+            totalBlocksPrevented={statistics?.totalBlocksPrevented ?? 0}
+            longestStreak={statistics?.longestStreak ?? 0}
+            currentStreak={streakData?.currentStreak ?? 0}
+          />
+        </motion.section>
+
         {/* Dashboard Card */}
         <motion.section
           className="w-full max-w-2xl py-10 px-6 rounded-3xl"
@@ -148,7 +184,9 @@ const Index = () => {
             >
               <BlockToggle
                 enabled={streakData?.protectionEnabled ?? true}
+                isPaused={streakData?.isPaused ?? false}
                 onToggle={handleToggleProtection}
+                onPause={handlePause}
               />
             </motion.div>
 

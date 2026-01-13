@@ -235,34 +235,49 @@ const GrowingTree = ({ days, maxDays = 30 }: GrowingTreeProps) => {
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="w-48">
-        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-          <motion.div
-            className="h-full rounded-full"
-            style={{
-              background: "linear-gradient(90deg, hsl(var(--foreground) / 0.6), hsl(var(--foreground)))",
-            }}
-            initial={{ width: 0 }}
-            animate={{ width: `${progress * 100}%` }}
-            transition={{ duration: 1, ease: "easeOut" }}
-          />
-        </div>
-        <motion.div
-          className="text-center mt-3 text-xs text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          {daysToNext > 0 ? (
-            <span>
-              <span className="font-medium text-foreground">{daysToNext}</span> days to {milestone.label}
-            </span>
-          ) : (
-            <span className="font-medium text-foreground">🎉 Full Growth Achieved!</span>
-          )}
-        </motion.div>
-      </div>
+      {/* Enhanced Milestone Card */}
+      <motion.div
+        className="w-52 py-4 px-6 bg-secondary/50 backdrop-blur-sm rounded-2xl"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        style={{
+          boxShadow: "0 4px 16px -4px hsl(var(--foreground) / 0.08)",
+        }}
+      >
+        {daysToNext > 0 ? (
+          <>
+            <div className="text-center mb-3">
+              <div className="text-2xl font-semibold">{daysToNext}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {daysToNext === 1 ? "day" : "days"} to {milestone.label}
+              </div>
+            </div>
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{
+                  background: "linear-gradient(90deg, hsl(var(--foreground) / 0.6), hsl(var(--foreground)))",
+                }}
+                initial={{ width: 0 }}
+                animate={{ width: `${progress * 100}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="text-center">
+            <motion.div
+              className="text-xl font-semibold mb-1"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              Full Growth Achieved
+            </motion.div>
+            <div className="text-xs text-muted-foreground">Keep going strong!</div>
+          </div>
+        )}
+      </motion.div>
     </motion.div>
   );
 };
